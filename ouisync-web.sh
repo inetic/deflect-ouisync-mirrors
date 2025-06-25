@@ -43,7 +43,7 @@ while [[ "$#" -gt 0 ]]; do
             do_get_token="yes"
             get_token_type=$2; shift
             if [ "$get_token_type" != "blind" -a "$get_token_type" != "read" -a "$get_token_type" != "write" ]; then
-                error "--get-token requires one of 'blind', 'read' or 'write' arguments"
+                error "Invalid value for --get-token"
             fi
             ;;
         --start) do_start="yes" ;;
@@ -85,7 +85,7 @@ function exe_i() {
 function enable_repo_defaults() {
     repo_name=$1
     # Mount the repo to $HOME/ouisync/$repo_name
-    exe ouisync mount --name $repo_name
+    exe ouisync mount --name "$repo_name"
     # Enable announcing on the Bittorrent DHT.
     exe ouisync dht --name "$repo_name" true
     # Enable peer exchange.
@@ -141,26 +141,6 @@ if [ "$do_get_token" = "yes" ]; then
 fi
 
 ######################################################################
-# Content of the nginx config file we want inside the serving container
-nginx_config=$(cat << EOM
-user root;
-
-events {
-	worker_connections 768;
-}
-
-http {
-    server {
-        listen $http_port;
-        location / {
-            root /opt/ouisync/$repo_name;
-        }
-    }
-}
-EOM
-)
-
-######################################################################
 # Upload content into the $repo_name repository
 if [ "$do_upload" = "yes" ]; then
     # Append '/' to `$upload_src_dir`, otherwise rsync would copy the directory
@@ -180,6 +160,25 @@ fi
 
 ######################################################################
 # Serve content of the repo
+
+nginx_config=$(cat << EOM
+user root;
+
+events {
+	worker_connections 768;
+}
+
+http {
+    server {
+        listen $http_port;
+        location / {
+            root /opt/ouisync/$repo_name;
+        }
+    }
+}
+EOM
+)
+
 if [ "$do_serve" = "yes" ]; then
     echo "$nginx_config" | exe_i dd of=/etc/nginx/nginx.conf
     exe nginx
