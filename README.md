@@ -5,9 +5,9 @@ Then you can do two things:
 1. Create a repository and put files into it
 2. Start seeding existing repository over ouisync and nginx
 
-Use create a repository use the script `~/creator/create-repo.sh`. When you run it
-it'll create a new repo, mount it to `~/creator/ouisync/www`. It'll
-will also start seeding it right a way.
+To create a repository use the script `~/creator/create-repo.sh`. It'll create
+a new repo, mount it to `~/creator/ouisync/www` and will start seeding it right
+a way.
 
 The script will halt so you'll need to connect to docker from another terminal
 or use `tmux` to copy files to the mounted folder.
