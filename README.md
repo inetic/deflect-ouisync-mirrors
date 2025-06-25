@@ -1,53 +1,115 @@
-Use the `run-docker.sh` script to start docker with ouisync and nginx installed.
+# Ouisync Web
 
-Then you can do two things:
+Script for distributing web content over Ouisync.
 
-1. Create a repository and put files into it
-2. Start seeding existing repository over ouisync and nginx
+## Use case
 
-To create a repository use the script `~/creator/create-repo.sh`. It'll create
-a new repo, mount it to `~/creator/ouisync/www` and will start seeding it right
-a way.
+Have two entities
 
-The script will halt so you'll need to connect to docker from another terminal
-or use `tmux` to copy files to the mounted folder.
+* _creator_: Web content creator
+* _server_: HTTP Web Server
 
-To start serving and seeding the repo use the scrit in `~/seeder/seed-repo.sh`.
-The first and only argument to the script is the repository token that the
-`create-repo.sh` prints out.  Make sure to use the READ token. The WRITE token
-would also work but it's a secret and we don't want it on the seeder machines
-(although for testing feel free to use that as well).
+The _creator_ has web content which they want to transfer over Ouisync to the _server_ for it to serve.
 
-In short, in the docker container, use something like this:
+## Usage
 
-Create a repo:
+The `./ouisync-web.sh` script will create a docker container. Depending on
+whether it's used by the _creator_ or the _server_ differnt subset of the flags
+should be used.
 
 ```bash
-./creator/create-repo.sh # Leave this running
+$ ./ouisync-web.sh --help
+script for serving web site shared over Ouisync"
+usage: $(basename $0) [--container-name name] [--get-token access] [--start] [--create] [--import token] [--upload dir] [--serve]"
+options:"
+  --container-name name    name of the docker container where to perform commands"
+  --start                  start the container and Ouisync inside it"
+  --create                 create a new repository"
+  --upload dir             upload content of dir into the repository"
+  --get-token acces        get access token of a previously created repository. access must be 'blind','read' or 'write'"
+  --import token           import an existing repository"
+  --serve                  start serving content of the repository over http on port $http_port"
 ```
 
-That will spit out the tokens, copy the READ token to clipboard.
+## Example
 
-Open another terminal and write something to the repo
+_creator_: Create a new repo, upload content to it and create `read_token` for the _server_.
 
 ```bash
-docker run -it <CONTAINER ID> bash
-echo "Hello Deflect/Ouisync/451" > ./creator/ouisync/www/index.html
-# Feel free to close this now and close the terminal
+$ # Start the Docker container and ouisync inside it
+$ ./ouisync-web.sh --start
+$ # Create ouisync repository. Only one repository is supported, see "Limitations"
+$ ./ouisync-web.sh --create
+$ # Create web content
+$ mkdir /tmp/ouisync-web
+$ echo "Hello from Ouisync Web" > /tmp/ouisync-web/index.html
+$ # Upload content to the repository, call this any time the web content changes
+$ ./ouisync-web.sh --upload /tmp/ouisync-web
+$ # Get the read token to be used on the server
+$ read_token=$(./ouisync-web.sh --get-token read)
 ```
 
-Open another terminal and start the seeder
+_server_: Import the repo and start serving it on port 8080
 
 ```bash
-docker run -it <CONTAINER ID> bash
-./seeder/seed-repo.sh <THE_TOKEN_FROM_THE_CREATE_REPO_STEP> # Leave this running
+$ # Start the Docker container and ouisync inside it
+$ ./ouisync-web.sh --start
+$ # Import the previously created repository using the `read_token`
+$ ./ouisync-web.sh --import $read_token
+$ # Start serving the web content
+$ ./ouisync-web.sh --serve
 ```
 
-Start nginx
+## Warnings
+
+### Upload only when synced
+
+In the above example we have one _creator_ who always has the latest version of
+the repository and thus is "always synced". In theory we could have multiple
+_creators_, or the same _creator_ may wish to upload the web content from
+another device. In such cases it is important for the _creator_ to always
+`--upload` new content _on top_ of the latest content version.
+
+Not doing so would create divergent versions which Ouisync would resolve by
+merging them together. Meaning
+
+* Files removed from one version but not the other would re-appear
+* Files present in both versions would be renamed (`.<hash-suffix>` would be
+  appended to their names)
+
+To avoid this, the _creator_ may do something like this:
 
 ```bash
-docker run -it <CONTAINER ID> bash
-nginx # Feel free to close after this
+$ # Start the Docker container and ouisync inside it
+$ ./ouisync-web.sh --start
+$ # Import the repository in write mode (--get-token write)
+$ ./ouisync-web.sh --import $write_token
+$ # Serve the content locally to check we have the latest version
+$ ./ouisync-web.sh --serve
+$ # Once we have the latest version, we can start uploading new content
+$ ./ouisync-web.sh --upload /tmp/ouisync-web
 ```
 
-Finally, go to your browser and type "localhost:8080" to the URL bar.
+### Remember to keep the _write token_
+
+The _creator_ should save the write token of the repository (`--get-token
+write`). If it's lost and the container where we have write access to the
+repository (`--create` or `--import write_token`) is deleted, a new repository
+will need to be created and the server will need to be re-initiated with the
+new _read token_.
+
+### Keep the __write token__ safe
+
+_Anyone_ who has the _write token_ can modify the repository.
+
+### Only send the _read token_ to the server
+
+The _server_ only needs the _read token_. It would work with _write token_ as
+well, but if the _server_ is compromised, the attacker could retrieve the
+_write token_ and remove or add malicious content to the repo.
+
+## Limitations
+
+This script is a proof-of-concept, and as such it supports only one repository.
+It shouldn't be too hard to support for multiple repos and serving the on
+different ports, but I wanted to avoid this complexity for the first iteration.

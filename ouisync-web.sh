@@ -12,10 +12,10 @@ function print_help() {
     echo "options:"
     echo "  --container-name name    name of the docker container where to perform commands"
     echo "  --start                  start the container and Ouisync inside it"
-    echo "  --get-token acces        get access token of a previously created repository. access must be 'blind','read' or 'write'"
     echo "  --create                 create a new repository"
-    echo "  --import token           import an existing repository"
     echo "  --upload dir             upload content of dir into the repository"
+    echo "  --get-token acces        get access token of a previously created repository. access must be 'blind','read' or 'write'"
+    echo "  --import token           import an existing repository"
     echo "  --serve                  start serving content of the repository over http on port $http_port"
 }
 
