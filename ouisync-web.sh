@@ -3,26 +3,32 @@
 set -e
 
 ######################################################################
+http_port=8080
 default_container_name=ouisync-web
 
 function print_help() {
-    echo "Script for serving web site shared over Ouisync"
-    echo "Usage: $0 --host <HOST> --commit <COMMIT> [--out <OUTPUT_DIRECTORY>]"
-    echo "  HOST:             IP or entry in ~/.ssh/config of machine running Docker"
-    echo "  COMMIT:           Commit from which to build"
-    echo "  OUTPUT_DIRECTORY: Directory where artifacts will be stored"
+    echo "script for serving web site shared over Ouisync"
+    echo "usage: $(basename $0) [--container-name name] [--get-token access] [--start] [--create] [--import token] [--upload dir] [--serve]"
+    echo "options:"
+    echo "  --container-name name    name of the docker container where to perform commands"
+    echo "  --start                  start the container and Ouisync inside it"
+    echo "  --get-token acces        get access token of a previously created repository. access must be 'blind','read' or 'write'"
+    echo "  --create                 create a new repository"
+    echo "  --import token           import an existing repository"
+    echo "  --upload dir             upload content of dir into the repository"
+    echo "  --serve                  start serving content of the repository over http on port $http_port"
 }
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        -h) print_help; exit ;;
+        -h|--help) print_help; exit ;;
         --container-name) container_name=$2; shift ;;
         --get-token) do_get_token="yes"; get_token_type=$2; shift ;;
-        start) do_start="yes" ;;
-        create) do_create="yes" ;;
-        import) do_import="yes"; import_token=$2; shift ;;
-        upload) do_upload="yes"; upload_src_dir=$2; shift ;;
-        serve) do_serve="yes" ;;
+        --start) do_start="yes" ;;
+        --create) do_create="yes" ;;
+        --import) do_import="yes"; import_token=$2; shift ;;
+        --upload) do_upload="yes"; upload_src_dir=$2; shift ;;
+        --serve) do_serve="yes" ;;
         *) echo "Unknown argument: $1"; print_help; exit 1 ;;
     esac
     shift
@@ -85,25 +91,6 @@ fi
 if [ "$do_create" = "yes" ]; then
     exe ouisync create --name $repo_name
     enable_repo_defaults $repo_name
-
-    write_token=$(exe sh -c "ouisync share --name $repo_name --mode write | grep '^https:'")
-    read_token=$( exe sh -c "ouisync share --name $repo_name --mode read  | grep '^https:'")
-    blind_token=$(exe sh -c "ouisync share --name $repo_name --mode blind | grep '^https:'")
-
-    echo "--------------------------------------------------------------------------"
-    echo ""
-    echo "Created repository '$repo_name'."
-    echo ""
-    echo "TOKENS:"
-    echo "  WRITE: $write_token"
-    echo "  READ:  $read_token"
-    echo "  BLIND: $blind_token"
-    echo ""
-    echo "!!! Make sure the WRITE TOKEN is kept secret. Anyone who has the WRITE TOKEN"
-    echo "!!! can modify the repository. For serving pages, only the READ TOKEN is"
-    echo "!!! needed."
-    echo ""
-    echo "--------------------------------------------------------------------------"
 fi
 
 ######################################################################
@@ -130,7 +117,7 @@ events {
 
 http {
     server {
-        listen 8080;
+        listen $http_port;
         location / {
             root /opt/ouisync/$repo_name;
         }
