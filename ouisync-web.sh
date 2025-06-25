@@ -22,12 +22,43 @@ function print_help() {
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -h|--help) print_help; exit ;;
-        --container-name) container_name=$2; shift ;;
-        --get-token) do_get_token="yes"; get_token_type=$2; shift ;;
+        --container-name)
+            container_name=$2; shift
+            if [ -z "$container_name" ]; then
+                echo "--container-name must not be empty"
+                print_help
+                exit 1
+            fi
+            ;;
+        --get-token)
+            do_get_token="yes"
+            get_token_type=$2; shift
+            if [ "$get_token_type" != "blind" -a "$get_token_type" != "read" -a "$get_token_type" != "write" ]; then
+                echo "--get-token requires one of 'blind', 'read' or 'write' arguments"
+                print_help
+                exit 1
+            fi
+            ;;
         --start) do_start="yes" ;;
         --create) do_create="yes" ;;
-        --import) do_import="yes"; import_token=$2; shift ;;
-        --upload) do_upload="yes"; upload_src_dir=$2; shift ;;
+        --import)
+            do_import="yes"
+            import_token=$2; shift
+            if [[ ! "$import_token" =~ ^https:// ]]; then
+                echo "--import requires a valid token (got '$import_token')"
+                print_help
+                exit 1
+            fi
+            ;;
+        --upload)
+            do_upload="yes"
+            upload_src_dir=$2; shift
+            if [ ! -d "$upload_src_dir" ]; then
+                echo "--upload requires a valid directory (got '$upload_src_dir')"
+                print_help
+                exit 1
+            fi
+            ;;
         --serve) do_serve="yes" ;;
         *) echo "Unknown argument: $1"; print_help; exit 1 ;;
     esac
