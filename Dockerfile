@@ -7,9 +7,6 @@ WORKDIR $HOME
 
 RUN apt-get update -y
 
-# For debugging
-RUN apt-get install -y vim tmux less
-
 ######################################################################
 ###  Setup Ouisync
 ######################################################################
