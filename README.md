@@ -19,16 +19,16 @@ should be used.
 
 ```bash
 $ ./ouisync-web.sh --help
-script for serving web site shared over Ouisync"
-usage: $(basename $0) [--container-name name] [--get-token access] [--start] [--create] [--import token] [--upload dir] [--serve]"
-options:"
-  --container-name name    name of the docker container where to perform commands"
-  --start                  start the container and Ouisync inside it"
-  --create                 create a new repository"
-  --upload dir             upload content of dir into the repository"
-  --get-token acces        get access token of a previously created repository. access must be 'blind','read' or 'write'"
-  --import token           import an existing repository"
-  --serve                  start serving content of the repository over http on port $http_port"
+Script for serving web site shared over Ouisync"
+Usage: $(basename $0) [--container-name name] [--get-token access] [--start] [--create] [--import token] [--upload dir] [--serve]"
+Options:"
+  --container-name name    Name of the docker container where to perform commands. Defaults to 'ouisync-web'"
+  --start                  Start the container and Ouisync inside it"
+  --create                 Create a new repository"
+  --upload dir             Upload content of dir into the repository"
+  --get-token acces        Get access token of a previously created repository. Must be 'blind','read' or 'write'"
+  --import token           Import an existing repository"
+  --serve                  Start serving content of the repository over http on port 8080"
 ```
 
 ## Example
@@ -49,7 +49,7 @@ $ # Get the read token to be used on the server
 $ read_token=$(./ouisync-web.sh --get-token read)
 ```
 
-_server_: Import the repo and start serving it on port 8080
+_server_: Import the repo using the `read_token` from above and start serving it on port 8080
 
 ```bash
 $ # Start the Docker container and ouisync inside it

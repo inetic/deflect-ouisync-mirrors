@@ -6,37 +6,44 @@ set -e
 http_port=8080
 default_container_name=ouisync-web
 
-function print_help() {
-    echo "script for serving web site shared over Ouisync"
-    echo "usage: $(basename $0) [--container-name name] [--get-token access] [--start] [--create] [--import token] [--upload dir] [--serve]"
-    echo "options:"
-    echo "  --container-name name    name of the docker container where to perform commands"
-    echo "  --start                  start the container and Ouisync inside it"
-    echo "  --create                 create a new repository"
-    echo "  --upload dir             upload content of dir into the repository"
-    echo "  --get-token acces        get access token of a previously created repository. access must be 'blind','read' or 'write'"
-    echo "  --import token           import an existing repository"
-    echo "  --serve                  start serving content of the repository over http on port $http_port"
+function print_usage() {
+    echo "Usage: $(basename $0) [--container-name name] [--get-token access] [--start] [--create] [--import token] [--upload dir] [--serve]"
+    echo "Options:"
+    echo "  --container-name name    Name of the docker container where to perform commands. Defaults to $default_container_name"
+    echo "  --start                  Start the container and Ouisync inside it"
+    echo "  --create                 Create a new repository"
+    echo "  --upload dir             Upload content of dir into the repository"
+    echo "  --get-token acces        Get access token of a previously created repository. Must be 'blind','read' or 'write'"
+    echo "  --import token           Import an existing repository"
+    echo "  --serve                  Start serving content of the repository over http on port $http_port"
+}
+
+function error() {
+    echo "Error: $@"
+    echo ""
+    print_usage
+    exit 1
 }
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        -h|--help) print_help; exit ;;
+        -h|--help)
+            echo "Script for serving web site shared over Ouisync"
+            echo ""
+            print_usage
+            exit
+            ;;
         --container-name)
             container_name=$2; shift
             if [ -z "$container_name" ]; then
-                echo "--container-name must not be empty"
-                print_help
-                exit 1
+                error "--container-name must not be empty"
             fi
             ;;
         --get-token)
             do_get_token="yes"
             get_token_type=$2; shift
             if [ "$get_token_type" != "blind" -a "$get_token_type" != "read" -a "$get_token_type" != "write" ]; then
-                echo "--get-token requires one of 'blind', 'read' or 'write' arguments"
-                print_help
-                exit 1
+                error "--get-token requires one of 'blind', 'read' or 'write' arguments"
             fi
             ;;
         --start) do_start="yes" ;;
@@ -44,23 +51,19 @@ while [[ "$#" -gt 0 ]]; do
         --import)
             do_import="yes"
             import_token=$2; shift
-            if [[ ! "$import_token" =~ ^https:// ]]; then
-                echo "--import requires a valid token (got '$import_token')"
-                print_help
-                exit 1
+            if [[ ! "$import_token" =~ ^https://ouisync.net/r# ]]; then
+                error "--import requires a valid token (got '$import_token')"
             fi
             ;;
         --upload)
             do_upload="yes"
             upload_src_dir=$2; shift
             if [ ! -d "$upload_src_dir" ]; then
-                echo "--upload requires a valid directory (got '$upload_src_dir')"
-                print_help
-                exit 1
+                error "--upload requires a valid directory (got '$upload_src_dir')"
             fi
             ;;
         --serve) do_serve="yes" ;;
-        *) echo "Unknown argument: $1"; print_help; exit 1 ;;
+        *) error "Unknown argument: $1" ;;
     esac
     shift
 done
@@ -161,7 +164,7 @@ EOM
 # Upload content into the $repo_name repository
 if [ "$do_upload" = "yes" ]; then
     # Append '/' to `$upload_src_dir`, otherwise rsync would copy the directory
-    # as well as opposed to just its content.
+    # itself as opposed to its content.
     if [ "${upload_src_dir: -1}" != "/" ]; then
         upload_src_dir="$upload_src_dir/"
     fi
