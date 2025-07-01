@@ -84,12 +84,14 @@ function exe_i() {
 
 function enable_repo_defaults() {
     repo_name=$1
-    # Mount the repo to $HOME/ouisync/$repo_name
-    exe ouisync mount --name "$repo_name"
+    # Tell ouisync where to mount repositories
+    exe ouisync mount-dir /opt/ouisync
+    # Mount the repo to <mount-dir>/$repo_name
+    exe ouisync mount "$repo_name"
     # Enable announcing on the Bittorrent DHT.
-    exe ouisync dht --name "$repo_name" true
+    exe ouisync dht "$repo_name" true
     # Enable peer exchange.
-    exe ouisync pex --name "$repo_name" true
+    exe ouisync pex "$repo_name" true
     # Enable local discovery. Useful mainly for testing in our case.
     exe ouisync local-discovery true
 }
@@ -110,34 +112,34 @@ if [ "$do_start" = "yes" ]; then
         --name $container_name $image_name \
         sh -c 'while true; do sleep 1; done'
 
-    exe ouisync bind quic/0.0.0.0:0 quic/[::]:0
-    # TODO: Ouisync should create this directory automatically
-    exe mkdir -p /opt/.cache
+    # Start ouisync in the background
     exe sh -c 'nohup ouisync start &'
 
-    # Give the ouisync command some time to start
-    # TODO: Ouisync should have some flag to tell us when it started
-    sleep 1
+    # Wait for ouisync to start
+    exe sh -c 'while [ ! -f /opt/.config/ouisync/local_control_port.conf ]; do sleep 0.2; done'
+
+    # Bind ouisync to IPv4 and IPv6 on random ports
+    exe ouisync bind quic/0.0.0.0:0 quic/[::]:0
 fi
 
 ######################################################################
 # Create the "www" repository
 if [ "$do_create" = "yes" ]; then
-    exe ouisync create --name $repo_name
+    exe ouisync create $repo_name
     enable_repo_defaults $repo_name
 fi
 
 ######################################################################
 # Import repository from a token
 if [ "$do_import" = "yes" ]; then
-    exe ouisync create --name $repo_name --share-token $import_token
+    exe ouisync create $repo_name --token $import_token
     enable_repo_defaults $repo_name
 fi
 
 ######################################################################
 # Get repository token 
 if [ "$do_get_token" = "yes" ]; then
-    exe ouisync share --name $repo_name --mode $get_token_type
+    exe ouisync share $repo_name --mode $get_token_type
 fi
 
 ######################################################################
