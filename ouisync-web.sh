@@ -7,8 +7,9 @@ http_port=8080
 default_container_name=ouisync-web
 
 function print_usage() {
-    echo "Usage: $(basename $0) [--container-name name] [--get-token access] [--start] [--create] [--import token] [--upload dir] [--serve]"
+    echo "Usage: $(basename $0) [--host host] [--container-name name] [--get-token access] [--start] [--create] [--import token] [--upload dir] [--serve]"
     echo "Options:"
+    echo "  --host host              IP or ~/.ssh/config entry of a server running docker where the commands shall run"
     echo "  --container-name name    Name of the docker container where to perform commands. Defaults to $default_container_name"
     echo "  --start                  Start the container and Ouisync inside it"
     echo "  --create                 Create a new repository"
@@ -32,6 +33,13 @@ while [[ "$#" -gt 0 ]]; do
             echo ""
             print_usage
             exit
+            ;;
+        --host)
+            host=$2; shift
+            if [ -z "$host" ]; then
+                error "--host must not be empty"
+            fi
+            docker_host="--host ssh://$host"
             ;;
         --container-name)
             container_name=$2; shift
@@ -74,12 +82,16 @@ repo_name=www
 
 ######################################################################
 # Utility to run command inside the docker container
+function dock() {
+    docker $docker_host "$@"
+}
+
 function exe() {
-    docker exec $container_name "$@"
+    dock exec $container_name "$@"
 }
 
 function exe_i() {
-    docker exec -i $container_name "$@"
+    dock exec -i $container_name "$@"
 }
 
 function enable_repo_defaults() {
@@ -88,29 +100,29 @@ function enable_repo_defaults() {
     exe ouisync mount-dir /opt/ouisync
     # Mount the repo to <mount-dir>/$repo_name
     exe ouisync mount "$repo_name"
-    # Enable announcing on the Bittorrent DHT.
+    # Enable announcing on the Bittorrent DHT
     exe ouisync dht "$repo_name" true
-    # Enable peer exchange.
+    # Enable peer exchange
     exe ouisync pex "$repo_name" true
-    # Enable local discovery. Useful mainly for testing in our case.
+    # Enable local discovery. Useful mainly for testing in our case
     exe ouisync local-discovery true
 }
 
 ######################################################################
 # Start the container and ouisync inside it
 if [ "$do_start" = "yes" ]; then
-    docker build -t $image_name .
+    dock build -t $image_name - < ./Dockerfile
     
     # Flags to allow mounting inside the container
     # https://stackoverflow.com/a/49021109/273348
     fuse_mounting_flags="--device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined"
 
-    docker run \
+    dock run \
         --detach \
         --net=host \
         $fuse_mounting_flags \
         --name $container_name $image_name \
-        sh -c 'while true; do sleep 1; done'
+        sleep infinity
 
     # Start ouisync in the background
     exe sh -c 'nohup ouisync start &'
@@ -155,7 +167,7 @@ if [ "$do_upload" = "yes" ]; then
     # on those.
     no_timestamp_flags="--checksum --ignore-times"
 
-    rsync -e 'docker exec -i' -rv $no_timestamp_flags \
+    rsync -e "docker $docker_host exec -i" -rv $no_timestamp_flags \
         $upload_src_dir \
         $container_name:/opt/ouisync/$repo_name
 fi

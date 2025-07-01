@@ -22,6 +22,7 @@ $ ./ouisync-web.sh --help
 Script for serving web site shared over Ouisync"
 Usage: $(basename $0) [--container-name name] [--get-token access] [--start] [--create] [--import token] [--upload dir] [--serve]"
 Options:"
+  --host host              IP or ~/.ssh/config entry of a server running docker where the commands shall run
   --container-name name    Name of the docker container where to perform commands. Defaults to 'ouisync-web'"
   --start                  Start the container and Ouisync inside it"
   --create                 Create a new repository"
