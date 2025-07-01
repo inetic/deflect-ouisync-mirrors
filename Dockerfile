@@ -7,6 +7,7 @@ ENV HOME=/opt
 WORKDIR $HOME
 
 RUN apt-get update -y
+RUN apt-get upgrade -y
 
 ######################################################################
 ###  Setup Ouisync
