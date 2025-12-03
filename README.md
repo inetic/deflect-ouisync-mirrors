@@ -6,15 +6,15 @@ Script for distributing web content over Ouisync.
 
 Have two entities
 
-* _creator_: Web content creator
-* _server_: HTTP Web Server
+* _primary_: The server which has the content to be mirrored
+* _mirror_: The server that mirrors the _primary_ and serves the content
 
-The _creator_ has web content which they want to transfer over Ouisync to the _server_ for it to serve.
+The _primary_ has web content which they want to transfer over Ouisync to the _mirror_ for it to serve.
 
 ## Usage
 
 The `./ouisync-web.sh` script will create a docker container. Depending on
-whether it's used by the _creator_ or the _server_ differnt subset of the flags
+whether it's used by the _primary_ or the _mirror_ differnt subset of the flags
 should be used.
 
 ```bash
@@ -34,7 +34,7 @@ Options:"
 
 ## Example
 
-_creator_: Create a new repo, upload content to it and create `read_token` for the _server_.
+_primary_: Create a new repo, upload content to it and create `read_token` for the _mirror_.
 
 ```bash
 $ # Start the Docker container and ouisync inside it
@@ -50,7 +50,7 @@ $ # Get the read token to be used on the server
 $ read_token=$(./ouisync-web.sh --get-token read)
 ```
 
-_server_: Import the repo using the `read_token` from above and start serving it on port 8080
+_mirror_: Import the repo using the `read_token` from above and start serving it on port 8080
 
 ```bash
 $ # Start the Docker container and ouisync inside it
@@ -65,10 +65,10 @@ $ ./ouisync-web.sh --serve
 
 ### Upload only when synced
 
-In the above example we have one _creator_ who always has the latest version of
+In the above example we have one _primary_ who always has the latest version of
 the repository and thus is "always synced". In theory we could have multiple
-_creators_, or the same _creator_ may wish to upload the web content from
-another device. In such cases it is important for the _creator_ to always
+_primarys_, or the same _primary_ may wish to upload the web content from
+another device. In such cases it is important for the _primary_ to always
 `--upload` new content _on top_ of the latest content version.
 
 Not doing so would create divergent versions which Ouisync would resolve by
@@ -78,7 +78,7 @@ merging them together. Meaning
 * Files present in both versions would be renamed (`.<hash-suffix>` would be
   appended to their names)
 
-To avoid this, the _creator_ may do something like this:
+To avoid this, the _primary_ may do something like this:
 
 ```bash
 $ # Start the Docker container and ouisync inside it
@@ -93,7 +93,7 @@ $ ./ouisync-web.sh --upload /tmp/ouisync-web
 
 ### Remember to keep the _write token_
 
-The _creator_ should save the write token of the repository (`--get-token
+The _primary_ should save the write token of the repository (`--get-token
 write`). If it's lost and the container where we have write access to the
 repository (`--create` or `--import write_token`) is deleted, a new repository
 will need to be created and the server will need to be re-initiated with the
@@ -105,8 +105,8 @@ _Anyone_ who has the _write token_ can modify the repository.
 
 ### Only send the _read token_ to the server
 
-The _server_ only needs the _read token_. It would work with _write token_ as
-well, but if the _server_ is compromised, the attacker could retrieve the
+The _mirror_ only needs the _read token_. It would work with _write token_ as
+well, but if the _mirror_ is compromised, the attacker could retrieve the
 _write token_ and remove or add malicious content to the repo.
 
 ## Limitations
