@@ -54,24 +54,24 @@ container_ouisync_store_dir=$container_ouisync_dir/repositories
 
 ######################################################################
 # Utility to run command inside the docker container
-function dock() {
+function dock (
     docker $docker_host "$@"
-}
+)
 
-function exe() {
+function exe (
     dock exec $container_name "$@"
-}
+)
 
-function exe_i() {
+function exe_i (
     dock exec -i $container_name "$@"
-}
+)
 
 # For debugging
 function enter(
     dock exec -it $container_name bash
 )
 
-function enable_repo_defaults() {
+function enable_repo_defaults(
     repo_name=$1
     # Tell ouisync where to mount repositories
     exe ouisync mount-dir $container_home/ouisync
@@ -83,7 +83,7 @@ function enable_repo_defaults() {
     exe ouisync pex "$repo_name" true
     # Enable local discovery. Useful mainly for testing in our case
     exe ouisync local-discovery true
-}
+)
 
 function run_container_detached (
     dock build -t $image_name - < ./Dockerfile
