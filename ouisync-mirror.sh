@@ -29,6 +29,11 @@ function print_help() {
     echo
     echo "      Makes this script act as a \"mirror\" server, meaning that content of a repository"
     echo "      represented by <TOKEN> will be mirrored into the <OUT_DIR> directory."
+    echo
+    echo "  --get-token <TYPE>"
+    echo
+    echo "      The the the token of a repository running in the container. Token <TYPE> must be"
+    echo "      'blind', 'read' or 'write'."
 }
 
 function error() {
@@ -204,6 +209,11 @@ function act_as_mirror (
     import_ouisync_repo $token
     start_updating
 )
+
+if [[ "$#" -eq 0 ]]; then
+    error "No arguments"
+    exit
+fi
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
