@@ -13,7 +13,7 @@ RUN apt-get upgrade -y
 ###  Setup Ouisync
 ######################################################################
 # Install dependencies.
-RUN apt-get install -y nginx wget libfuse2 libfuse3-dev fuse3 rsync
+RUN apt-get install -y lsyncd nginx wget libfuse2 libfuse3-dev fuse3 rsync
 
 # Download ouisync package.
 RUN wget -O ouisync-cli.deb $OUISYNC_PACKAGE

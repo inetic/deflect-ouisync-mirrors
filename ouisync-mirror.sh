@@ -45,7 +45,7 @@ function error() {
 
 container_name=${container_name:=$default_container_name}
 image_name=ouisync-mirrors
-repo_name=www
+repo_name=repo
 
 ######################################################################
 # Utility to run command inside the docker container
@@ -82,40 +82,40 @@ function enable_repo_defaults() {
 function run_container_detached (
     dock build -t $image_name - < ./Dockerfile
     
-    # Flags to allow mounting inside the container
-    # https://stackoverflow.com/a/49021109/273348
-    fuse_mounting_flags="--device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined"
+    local run_args=(
+        --detach
+        "$@"
+        # It's preferable to let Ouisync choose TCP or UDP port number
+        --net=host
+        # Flags to allow mounting inside the container
+        # https://stackoverflow.com/a/49021109/273348
+        --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined
+        --name $container_name
+        $image_name
+    )
 
-    dock run \
-        --detach \
-        --net=host \
-        "$@" \
-        $fuse_mounting_flags \
-        --name $container_name $image_name \
-        sleep infinity
+    dock run ${run_args[@]} sleep infinity
 )
 
 function start_primary_container (
     local store_dir=$1
-    local watch_dir=$2
+    local in_dir=$2
 
     if [ ! -d "$store_dir" ]; then
         error "Store dir is not a valid directory ($store_dir)"
     fi
 
-    if [ ! -d "$watch_dir" ]; then
-        error "Watch dir is not a valid directory ($watch_dir)"
+    if [ ! -d "$in_dir" ]; then
+        error "Watch dir is not a valid directory ($in_dir)"
     fi
 
     run_container_detached \
         -v $store_dir:/opt/.local/share/ouisync \
-        -v $watch_dir:/watch_dir:ro
+        -v $in_dir:/in_dir:ro
 )
 
 function start_mirror_container (
     local out_dir=$1
-
-    # TODO: Check if token is valid
 
     if [ ! -d "$out_dir" ]; then
         error "Out dir is not a valid directory ($out_dir)"
@@ -135,24 +135,37 @@ function start_ouisync (
     exe ouisync bind quic/0.0.0.0:0 quic/[::]:0
 )
 
-# Continuously `rsync` from `WATCH_DIR` into the repo
+# Whenever there is a change in `IN_DIR` `rsync` its content into the repo mounted directory
 function start_watching (
-    # TODO: Use something like lsyncd
-    local script=(
-        "while true; do"
-        "  rsync -rv --del --checksum --ignore-times /watch_dir/ ~/ouisync/www;"
-        "  sleep 1;"
-        "done"
+    local lsyncd_config=(
+        "sync {"
+        "    default.rsync,"
+        "    source    = '/in_dir/',"
+        "    target    = '/opt/ouisync/$repo_name/',"
+        "    delay     = 1,"
+        "    rsync     = {"
+        #        Ouisync doesn't yet support timestamps so fallback to comparing checksums
+        "        checksum     = true,"
+        "        ignore_times = true,"
+        "        _extra       = {"
+        "            '--omit-dir-times',"
+        "        },"
+        "    },"
+        "}"
     )
-    exe bash -c "${script[*]}&"
+    local config_file=$(exe mktemp /tmp/lsyncd_config.XXXXXXXX)
+    echo -e "${lsyncd_config[@]/%/'\n'}" | exe_i dd of=$config_file
+    exe lsyncd $config_file
 )
 
 # Continuously `rsync` from the repo into `OUT_DIR`
 function start_updating (
-    # TODO: Use something like lsyncd
+    # TODO: Ouisync mounted directories don't currently support inotify so we
+    # need to fallback to periodical `rsync`.
     local script=(
         "while true; do"
-        "  rsync -rv --del --checksum --ignore-times ~/ouisync/www/ /out_dir;"
+        #  Ouisync doesn't yet support timestamps so fallback to comparing checksums
+        "  rsync -rv --del --checksum --ignore-times ~/ouisync/$repo_name/ /out_dir;"
         "  sleep 1;"
         "done"
     )
@@ -194,11 +207,11 @@ function create_repo_if_doesnt_exist (
 
 function act_as_primary (
     store_dir=$1;
-    watch_dir=$2;
-    start_primary_container $store_dir $watch_dir
+    in_dir=$2;
+    start_primary_container $store_dir $in_dir
     start_ouisync
     create_repo_if_doesnt_exist
-    start_watching $watch_dir
+    start_watching $in_dir
 )
 
 function act_as_mirror (
@@ -236,8 +249,8 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         --primary|-p)
             store_dir=$2; shift
-            watch_dir=$2; shift
-            act_as_primary $store_dir $watch_dir
+            in_dir=$2; shift
+            act_as_primary $store_dir $in_dir
             ;;
         --mirror|-m)
             token=$2; shift
