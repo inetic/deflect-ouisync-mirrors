@@ -33,30 +33,24 @@ mkdir -p $store_dir $primary_dir $mirror_dir
 function check_same (
     local dir1=$primary_dir
     local dir2=$mirror_dir
-    local same
     for i in $(seq 1 50); do
         difference=$(diff -r $dir1 $dir2 || true)
         if [ -z "$difference" ]; then
-            same=y
-            break
+            return 0
         fi
         sleep 0.2
     done
-    if [ $same != y ]; then
-        echo "ERROR: Dirs not in sync"
-        echo "$difference"
-        return 1
-    fi
+    echo "ERROR: Dirs not in sync"
+    echo "$difference"
+    return 1
 )
 
 echo "######## Running tests ##########"
 
-control_text="Hello from Ouisync Mirrors"
-echo $control_text > $primary_dir/file1
+echo "The big brow fox" > $primary_dir/file1
 check_same
 
-control_text="foo bar"
-echo $control_text > $primary_dir/file2
+echo "jumped over" > $primary_dir/file2
 check_same
 
 rm $primary_dir/file1
@@ -65,9 +59,8 @@ check_same
 rm $primary_dir/file2
 check_same
 
-control_text="inside dir"
 mkdir -p $primary_dir/dir
-echo $control_text > $primary_dir/dir/file3
+echo "the lazy dog" > $primary_dir/dir/file3
 check_same
 
 rm $primary_dir/dir/file3
