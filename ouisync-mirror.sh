@@ -86,7 +86,21 @@ function enable_repo_defaults(
 )
 
 function run_container_detached (
-    dock build -t $image_name - < ./Dockerfile
+    ouisync_package=https://github.com/equalitie/ouisync-app/releases/download/v0.9.2/ouisync-cli_0.9.2_amd64.deb
+
+    local dockerfile=(
+        "FROM ubuntu:latest"
+        "ENV HOME=$container_home"
+        'WORKDIR $HOME'
+        "RUN apt-get update -y"
+        "RUN apt-get upgrade -y"
+        "RUN apt-get install -y lsyncd wget libfuse-dev"
+        "RUN wget -O ouisync-cli.deb $ouisync_package"
+        "RUN dpkg -i ouisync-cli.deb"
+        "RUN rm ouisync-cli.deb"
+    )
+
+    echo -e ${dockerfile[@]/%/'\n'} | dock build -t $image_name -
     
     local run_args=(
         --detach
