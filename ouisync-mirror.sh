@@ -19,10 +19,10 @@ function print_help (
     echo
     echo "      Name of the docker container where to perform commands. Defaults to $default_container_name"
     echo
-    echo "  --primary <STORE> <IN_DIR>"
+    echo "  --primary <STORE_DIR> <IN_DIR>"
     echo
     echo "      Makes this script act as a \"primary\" server, meaning that content of <IN_DIR> will"
-    echo "      be mirrored into \"mirror\" servers. <STOREDIR> needs to point to a directory"
+    echo "      be mirrored into \"mirror\" servers. <STORE_DIR> needs to point to a directory"
     echo "      where ouisync will store the repository databases."
     echo
     echo "  --mirror <TOKEN> <OUT_DIR>"
@@ -48,6 +48,7 @@ image_name=ouisync-mirrors
 repo_name=mirror_repo
 
 container_home=/opt
+container_mount_root=$container_home/mount_root
 container_ouisync_dir=$container_home/.local/share/org.equalitie.ouisync
 container_ouisync_config_dir=$container_ouisync_dir/configs
 container_ouisync_store_dir=$container_ouisync_dir/repositories
@@ -74,7 +75,7 @@ function enter(
 function enable_repo_defaults(
     repo_name=$1
     # Tell ouisync where to mount repositories
-    exe ouisync mount-dir $container_home/ouisync
+    exe ouisync mount-dir $container_mount_root
     # Mount the repo to <mount-dir>/$repo_name
     exe ouisync mount "$repo_name"
     # Enable announcing on the Bittorrent DHT
@@ -161,7 +162,7 @@ function start_updating_from (
         "sync {"
         "    default.rsync,"
         "    source    = '/in_dir/',"
-        "    target    = '$container_home/ouisync/$repo_name/',"
+        "    target    = '$container_mount_root/$repo_name/',"
         "    delay     = 1,"
         "    rsync     = {"
         #        Ouisync doesn't yet support timestamps so fallback to comparing checksums
@@ -185,7 +186,7 @@ function start_updating_into (
     local script=(
         "while true; do"
         #  Ouisync doesn't yet support timestamps so fallback to comparing checksums
-        "  rsync -rv --del --checksum --ignore-times $container_home/ouisync/$repo_name/ /out_dir;"
+        "  rsync -r --del --checksum --ignore-times $container_mount_root/$repo_name/ /out_dir;"
         "  sleep 1;"
         "done"
     )
