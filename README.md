@@ -1,6 +1,6 @@
-# Ouisync Web
+# Ouisync Mirror
 
-Script for distributing web content over Ouisync.
+Script for mirroring directories using Ouisync
 
 ## Use case
 
@@ -9,108 +9,64 @@ Have two entities
 * _primary_: The server which has the content to be mirrored
 * _mirror_: The server that mirrors the _primary_ and serves the content
 
-The _primary_ has web content which they want to transfer over Ouisync to the _mirror_ for it to serve.
+The _primary_ wants to replicate content of a directory over Ouisync to one or more _mirrors_.
 
 ## Usage
 
-The `./ouisync-web.sh` script will create a docker container. Depending on
-whether it's used by the _primary_ or the _mirror_ differnt subset of the flags
-should be used.
+The `./ouisync-mirror.sh` script will create a docker container.
 
 ```bash
-$ ./ouisync-web.sh --help
-Script for serving web site shared over Ouisync"
-Usage: $(basename $0) [--container-name name] [--get-token access] [--start] [--create] [--import token] [--upload dir] [--serve]"
-Options:"
-  --host host              IP or ~/.ssh/config entry of a server running docker where the commands shall run
-  --container-name name    Name of the docker container where to perform commands. Defaults to 'ouisync-web'"
-  --start                  Start the container and Ouisync inside it"
-  --create                 Create a new repository"
-  --upload dir             Upload content of dir into the repository"
-  --get-token acces        Get access token of a previously created repository. Must be 'blind','read' or 'write'"
-  --import token           Import an existing repository"
-  --serve                  Start serving content of the repository over http on port 8080"
+$ ./ouisync-mirror.sh --help
+Utility for mirroring directories using Ouisync
+
+Usage: $(basename $0) [--host host] [--container-name name] ([--get-token ...] | [--primary ...] | [--mirror ...])
+
+Options:
+  --host <HOST>
+
+      IP or ~/.ssh/config entry of a server running docker where the commands shall run
+
+  --container-name <NAME>
+
+      Name of the docker container where to perform commands. Defaults to $default_container_name
+
+  --primary <STORE> <IN_DIR>
+
+      Makes this script act as a \"primary\" server, meaning that content of <IN_DIR> will
+      be mirrored into \"mirror\" servers. <STOREDIR> needs to point to a directory
+      where ouisync will store the repository databases.
+
+  --mirror <TOKEN> <OUT_DIR>
+
+      Makes this script act as a \"mirror\" server, meaning that content of a repository
+      represented by <TOKEN> will be mirrored into the <OUT_DIR> directory.
+
+  --get-token <TYPE>
+
+      The the the token of a repository running in the container. Token <TYPE> must be
+      'blind', 'read' or 'write'.
 ```
 
 ## Example
 
-_primary_: Create a new repo, upload content to it and create `read_token` for the _mirror_.
+_primary_: Create new or reuse existing repo, start mirroring the `~/SourceDirectory`
+directory into the repository and get the repository _read token_. The
+`~/OuisyncMirrorStore` directory will be used to store the Ouisync repository
+database for reuse on subsequent runs. Both directories should exist before
+executing the command.
 
 ```bash
-$ # Start the Docker container and ouisync inside it
-$ ./ouisync-web.sh --start
-$ # Create ouisync repository. Only one repository is supported, see "Limitations"
-$ ./ouisync-web.sh --create
-$ # Create web content
-$ mkdir /tmp/ouisync-web
-$ echo "Hello from Ouisync Web" > /tmp/ouisync-web/index.html
-$ # Upload content to the repository, call this any time the web content changes
-$ ./ouisync-web.sh --upload /tmp/ouisync-web
-$ # Get the read token to be used on the server
-$ read_token=$(./ouisync-web.sh --get-token read)
+./ouisync-mirror.sh --container-name primary --primary ~/OuisyncMirrorStore ~/SourceDirectory
+./ouisync-mirror.sh --get-token read
 ```
 
-_mirror_: Import the repo using the `read_token` from above and start serving it on port 8080
+_mirror_: Import the repo using the _read token_ from above and mirror it into
+a `~/TargetDirectory` directory.
 
 ```bash
-$ # Start the Docker container and ouisync inside it
-$ ./ouisync-web.sh --start
-$ # Import the previously created repository using the `read_token`
-$ ./ouisync-web.sh --import $read_token
-$ # Start serving the web content
-$ ./ouisync-web.sh --serve
+./ouisync-mirror.sh --container-name mirror --mirror <READ_TOKEN> ~/TargetDirectory
 ```
-
-## Warnings
-
-### Upload only when synced
-
-In the above example we have one _primary_ who always has the latest version of
-the repository and thus is "always synced". In theory we could have multiple
-_primarys_, or the same _primary_ may wish to upload the web content from
-another device. In such cases it is important for the _primary_ to always
-`--upload` new content _on top_ of the latest content version.
-
-Not doing so would create divergent versions which Ouisync would resolve by
-merging them together. Meaning
-
-* Files removed from one version but not the other would re-appear
-* Files present in both versions would be renamed (`.<hash-suffix>` would be
-  appended to their names)
-
-To avoid this, the _primary_ may do something like this:
-
-```bash
-$ # Start the Docker container and ouisync inside it
-$ ./ouisync-web.sh --start
-$ # Import the repository in write mode (--get-token write)
-$ ./ouisync-web.sh --import $write_token
-$ # Serve the content locally to check we have the latest version
-$ ./ouisync-web.sh --serve
-$ # Once we have the latest version, we can start uploading new content
-$ ./ouisync-web.sh --upload /tmp/ouisync-web
-```
-
-### Remember to keep the _write token_
-
-The _primary_ should save the write token of the repository (`--get-token
-write`). If it's lost and the container where we have write access to the
-repository (`--create` or `--import write_token`) is deleted, a new repository
-will need to be created and the server will need to be re-initiated with the
-new _read token_.
-
-### Keep the __write token__ safe
-
-_Anyone_ who has the _write token_ can modify the repository.
-
-### Only send the _read token_ to the server
-
-The _mirror_ only needs the _read token_. It would work with _write token_ as
-well, but if the _mirror_ is compromised, the attacker could retrieve the
-_write token_ and remove or add malicious content to the repo.
 
 ## Limitations
 
 This script is a proof-of-concept, and as such it supports only one repository.
-It shouldn't be too hard to support for multiple repos and serving the on
-different ports, but I wanted to avoid this complexity for the first iteration.

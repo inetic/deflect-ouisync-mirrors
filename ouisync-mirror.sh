@@ -6,7 +6,7 @@ set -e
 default_container_name=ouisync-mirrors
 
 function print_help() {
-    echo "Utility to mirror directories using Ouisync"
+    echo "Utility for mirroring directories using Ouisync"
     echo
     echo "Usage: $(basename $0) [--host host] [--container-name name] ([--get-token ...] | [--primary ...] | [--mirror ...])"
     echo
