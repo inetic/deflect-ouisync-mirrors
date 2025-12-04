@@ -5,7 +5,7 @@ set -e
 ######################################################################
 default_container_name=ouisync-mirrors
 
-function print_help() {
+function print_help (
     echo "Utility for mirroring directories using Ouisync"
     echo
     echo "Usage: $(basename $0) [--host host] [--container-name name] ([--get-token ...] | [--primary ...] | [--mirror ...])"
@@ -34,14 +34,14 @@ function print_help() {
     echo
     echo "      The the the token of a repository running in the container. Token <TYPE> must be"
     echo "      'blind', 'read' or 'write'."
-}
+)
 
-function error() {
+function error (
     echo "Error: $@"
     echo ""
     print_help
     exit 1
-}
+)
 
 container_name=${container_name:=$default_container_name}
 image_name=ouisync-mirrors
@@ -203,8 +203,7 @@ function get_repo_token (
 )
 
 function create_repo_if_doesnt_exist (
-    echo "create_repo_if_doesnt_exist 1"
-    if [ -z "$(exe ls $container_ouisync_store_dir/$repo_name.ouisyncdb)" ]; then
+    if [ -z "$(exe ls $container_ouisync_store_dir/$repo_name.ouisyncdb 2> /dev/null)" ]; then
         exe ouisync create $repo_name
     else
         echo "Repo already exists, reusing."
