@@ -45,7 +45,12 @@ function error() {
 
 container_name=${container_name:=$default_container_name}
 image_name=ouisync-mirrors
-repo_name=repo
+repo_name=mirror_repo
+
+container_home=/opt
+container_ouisync_dir=$container_home/.local/share/org.equalitie.ouisync
+container_ouisync_config_dir=$container_ouisync_dir/configs
+container_ouisync_store_dir=$container_ouisync_dir/repositories
 
 ######################################################################
 # Utility to run command inside the docker container
@@ -61,6 +66,7 @@ function exe_i() {
     dock exec -i $container_name "$@"
 }
 
+# For debugging
 function enter(
     dock exec -it $container_name bash
 )
@@ -68,7 +74,7 @@ function enter(
 function enable_repo_defaults() {
     repo_name=$1
     # Tell ouisync where to mount repositories
-    exe ouisync mount-dir /opt/ouisync
+    exe ouisync mount-dir $container_home/ouisync
     # Mount the repo to <mount-dir>/$repo_name
     exe ouisync mount "$repo_name"
     # Enable announcing on the Bittorrent DHT
@@ -110,7 +116,7 @@ function start_primary_container (
     fi
 
     run_container_detached \
-        -v $store_dir:/opt/.local/share/ouisync \
+        -v $store_dir:$container_ouisync_store_dir \
         -v $in_dir:/in_dir:ro
 )
 
@@ -126,10 +132,10 @@ function start_mirror_container (
 
 function start_ouisync (
     # Start ouisync in the background
-    exe sh -c 'nohup ouisync start &'
+    exe sh -c '(nohup ouisync start || echo "Ouisync stopped") &'
 
     # Wait for ouisync to start
-    exe sh -c 'while [ ! -f /opt/.config/ouisync/local_control_port.conf ]; do sleep 0.2; done'
+    exe sh -c "while [ ! -f $container_ouisync_config_dir/local_endpoint.conf ]; do sleep 0.2; done"
 
     # Bind ouisync to IPv4 and IPv6 on random ports
     exe ouisync bind quic/0.0.0.0:0 quic/[::]:0
@@ -141,7 +147,7 @@ function start_watching (
         "sync {"
         "    default.rsync,"
         "    source    = '/in_dir/',"
-        "    target    = '/opt/ouisync/$repo_name/',"
+        "    target    = '$container_home/ouisync/$repo_name/',"
         "    delay     = 1,"
         "    rsync     = {"
         #        Ouisync doesn't yet support timestamps so fallback to comparing checksums
@@ -197,7 +203,8 @@ function get_repo_token (
 )
 
 function create_repo_if_doesnt_exist (
-    if [ -z "$(exe ls /opt/.local/share/ouisync/$repo_name.ouisyncdb)" ]; then
+    echo "create_repo_if_doesnt_exist 1"
+    if [ -z "$(exe ls $container_ouisync_store_dir/$repo_name.ouisyncdb)" ]; then
         exe ouisync create $repo_name
     else
         echo "Repo already exists, reusing."

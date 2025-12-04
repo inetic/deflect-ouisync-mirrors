@@ -1,7 +1,6 @@
 FROM ubuntu:latest
 
-ARG OUISYNC_PACKAGE=https://github.com/equalitie/ouisync-app/releases/download/v0.9.0/ouisync-cli_0.9.0_amd64.deb
-
+ARG OUISYNC_PACKAGE=https://github.com/equalitie/ouisync-app/releases/download/v0.9.2/ouisync-cli_0.9.2_amd64.deb
 
 ENV HOME=/opt
 WORKDIR $HOME
