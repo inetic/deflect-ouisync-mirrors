@@ -142,7 +142,7 @@ function start_ouisync (
 )
 
 # Whenever there is a change in `IN_DIR` `rsync` its content into the repo mounted directory
-function start_watching (
+function start_updating_from (
     local lsyncd_config=(
         "sync {"
         "    default.rsync,"
@@ -165,13 +165,13 @@ function start_watching (
 )
 
 # Continuously `rsync` from the repo into `OUT_DIR`
-function start_updating (
+function start_updating_into (
     # TODO: Ouisync mounted directories don't currently support inotify so we
     # need to fallback to periodical `rsync`.
     local script=(
         "while true; do"
         #  Ouisync doesn't yet support timestamps so fallback to comparing checksums
-        "  rsync -rv --del --checksum --ignore-times ~/ouisync/$repo_name/ /out_dir;"
+        "  rsync -rv --del --checksum --ignore-times $container_home/ouisync/$repo_name/ /out_dir;"
         "  sleep 1;"
         "done"
     )
@@ -214,20 +214,20 @@ function create_repo_if_doesnt_exist (
 
 function act_as_primary (
     store_dir=$1;
-    in_dir=$2;
-    start_primary_container $store_dir $in_dir
+    host_in_dir=$2;
+    start_primary_container $store_dir $host_in_dir
     start_ouisync
     create_repo_if_doesnt_exist
-    start_watching $in_dir
+    start_updating_from
 )
 
 function act_as_mirror (
     token=$1;
-    out_dir=$2;
-    start_mirror_container $out_dir
+    host_out_dir=$2;
+    start_mirror_container $host_out_dir
     start_ouisync
     import_ouisync_repo $token
-    start_updating
+    start_updating_into
 )
 
 if [[ "$#" -eq 0 ]]; then
