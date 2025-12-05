@@ -3,32 +3,36 @@
 set -e
 
 ######################################################################
-default_container_name=ouisync-mirrors
+default_container_name=ouisync-mirror
 
 function print_help (
     echo "Utility for mirroring directories using Ouisync"
     echo
-    echo "Usage: $(basename $0) [--host host] [--container-name name] ([--get-token ...] | [--primary ...] | [--mirror ...])"
+    echo "Usage: $(basename $0) [--help] [--host host] [--container-name name] ([--get-token ...] | [--primary ...] | [--mirror ...])"
     echo
     echo "Options:"
+    echo "  --help"
+    echo
+    echo "      Print this help and exit."
+    echo
     echo "  --host <HOST>"
     echo
-    echo "      IP or ~/.ssh/config entry of a server running docker where the commands shall run"
+    echo "      IP or ~/.ssh/config entry of a server running docker where the commands shall run."
     echo
     echo "  --container-name <NAME>"
     echo
-    echo "      Name of the docker container where to perform commands. Defaults to $default_container_name"
+    echo "      Name of the docker container where to perform commands. Defaults to '$default_container_name'."
     echo
-    echo "  --primary <STORE_DIR> <IN_DIR>"
+    echo "  --primary <STORE_DIR> <HOST_SOURCE_DIR>"
     echo
-    echo "      Makes this script act as a \"primary\" server, meaning that content of <IN_DIR> will"
+    echo "      Makes this script act as a \"primary\" server, meaning that content of <HOST_SOURCE_DIR> will"
     echo "      be mirrored into \"mirror\" servers. <STORE_DIR> needs to point to a directory"
     echo "      where ouisync will store the repository databases."
     echo
-    echo "  --mirror <TOKEN> <OUT_DIR>"
+    echo "  --mirror <TOKEN> <HOST_TARGET_DIR>"
     echo
     echo "      Makes this script act as a \"mirror\" server, meaning that content of a repository"
-    echo "      represented by <TOKEN> will be mirrored into the <OUT_DIR> directory."
+    echo "      represented by <TOKEN> will be mirrored into the <HOST_TARGET_DIR> directory."
     echo
     echo "  --get-token <TYPE>"
     echo
@@ -52,6 +56,9 @@ container_mount_root=$container_home/mount_root
 container_ouisync_dir=$container_home/.local/share/org.equalitie.ouisync
 container_ouisync_config_dir=$container_ouisync_dir/configs
 container_ouisync_store_dir=$container_ouisync_dir/repositories
+
+container_source_dir=$container_home/source
+container_target_dir=$container_home/target
 
 ######################################################################
 # Utility to run command inside the docker container
@@ -120,30 +127,30 @@ function run_container_detached (
 )
 
 function start_primary_container (
-    local store_dir=$1
-    local in_dir=$2
+    local host_store_dir=$1
+    local host_source_dir=$2
 
-    if [ ! -d "$store_dir" ]; then
-        error "Store dir is not a valid directory ($store_dir)"
+    if [ ! -d "$host_store_dir" ]; then
+        error "Store dir is not a valid directory on host ($host_store_dir)"
     fi
 
-    if [ ! -d "$in_dir" ]; then
-        error "Watch dir is not a valid directory ($in_dir)"
+    if [ ! -d "$host_source_dir" ]; then
+        error "Watch dir is not a valid directory on host ($host_source_dir)"
     fi
 
     run_container_detached \
-        -v $store_dir:$container_ouisync_store_dir \
-        -v $in_dir:/in_dir:ro
+        -v $host_store_dir:$container_ouisync_store_dir \
+        -v $host_source_dir:$container_source_dir:ro
 )
 
 function start_mirror_container (
-    local out_dir=$1
+    local host_target_dir=$1
 
-    if [ ! -d "$out_dir" ]; then
-        error "Out dir is not a valid directory ($out_dir)"
+    if [ ! -d "$host_target_dir" ]; then
+        error "Out dir is not a valid directory on host ($host_target_dir)"
     fi
 
-    run_container_detached -v $out_dir:/out_dir:rw
+    run_container_detached -v $host_target_dir:/$container_target_dir:rw
 )
 
 function start_ouisync (
@@ -157,12 +164,12 @@ function start_ouisync (
     exe ouisync bind quic/0.0.0.0:0 quic/[::]:0
 )
 
-# Whenever there is a change in `IN_DIR` `rsync` its content into the repo mounted directory
+# Whenever there is a change in `HOST_SOURCE_DIR`, `rsync` its content into the repo mounted directory
 function start_updating_from (
     local lsyncd_config=(
         "sync {"
         "    default.rsync,"
-        "    source    = '/in_dir/',"
+        "    source    = '$container_source_dir/',"
         "    target    = '$container_mount_root/$repo_name/',"
         "    delay     = 1,"
         "    rsync     = {"
@@ -180,14 +187,14 @@ function start_updating_from (
     exe lsyncd $config_file
 )
 
-# Continuously `rsync` from the repo into `OUT_DIR`
+# Continuously `rsync` from the repo into `HOST_TARGET_DIR`
 function start_updating_into (
     # TODO: Ouisync mounted directories don't currently support inotify so we
     # need to fallback to periodical `rsync`.
     local script=(
         "while true; do"
         #  Ouisync doesn't yet support timestamps so fallback to comparing checksums
-        "  rsync -r --del --checksum --ignore-times $container_mount_root/$repo_name/ /out_dir;"
+        "  rsync -r --del --checksum --ignore-times $container_mount_root/$repo_name/ /$container_target_dir;"
         "  sleep 1;"
         "done"
     )
@@ -228,9 +235,9 @@ function create_repo_if_doesnt_exist (
 )
 
 function act_as_primary (
-    store_dir=$1;
-    host_in_dir=$2;
-    start_primary_container $store_dir $host_in_dir
+    host_store_dir=$1;
+    host_source_dir=$2;
+    start_primary_container $host_store_dir $host_source_dir
     start_ouisync
     create_repo_if_doesnt_exist
     start_updating_from
@@ -238,8 +245,8 @@ function act_as_primary (
 
 function act_as_mirror (
     token=$1;
-    host_out_dir=$2;
-    start_mirror_container $host_out_dir
+    host_target_dir=$2;
+    start_mirror_container $host_target_dir
     start_ouisync
     import_ouisync_repo $token
     start_updating_into
@@ -270,14 +277,14 @@ while [[ "$#" -gt 0 ]]; do
             fi
             ;;
         --primary|-p)
-            store_dir=$2; shift
-            in_dir=$2; shift
-            act_as_primary $store_dir $in_dir
+            host_store_dir=$2; shift
+            host_source_dir=$2; shift
+            act_as_primary $host_store_dir $host_source_dir
             ;;
         --mirror|-m)
             token=$2; shift
-            out_dir=$2; shift
-            act_as_mirror $token $out_dir
+            host_target_dir=$2; shift
+            act_as_mirror $token $host_target_dir
             ;;
         --get-token)
             token_type=$2; shift

@@ -19,27 +19,31 @@ The `./ouisync-mirror.sh` script will create a docker container.
 $ ./ouisync-mirror.sh --help
 Utility for mirroring directories using Ouisync
 
-Usage: $(basename $0) [--host host] [--container-name name] ([--get-token ...] | [--primary ...] | [--mirror ...])
+Usage: $(basename $0) [--help] [--host host] [--container-name name] ([--get-token ...] | [--primary ...] | [--mirror ...])
 
 Options:
+  --help
+
+      Print this help and exit.
+
   --host <HOST>
 
-      IP or ~/.ssh/config entry of a server running docker where the commands shall run
+      IP or ~/.ssh/config entry of a server running docker where the commands shall run.
 
   --container-name <NAME>
 
-      Name of the docker container where to perform commands. Defaults to $default_container_name
+      Name of the docker container where to perform commands. Defaults to '$default_container_name'.
 
-  --primary <STORE> <IN_DIR>
+  --primary <STORE_DIR> <HOST_SOURCE_DIR>
 
-      Makes this script act as a \"primary\" server, meaning that content of <IN_DIR> will
-      be mirrored into \"mirror\" servers. <STOREDIR> needs to point to a directory
+      Makes this script act as a \"primary\" server, meaning that content of <HOST_SOURCE_DIR> will
+      be mirrored into \"mirror\" servers. <STORE_DIR> needs to point to a directory
       where ouisync will store the repository databases.
 
-  --mirror <TOKEN> <OUT_DIR>
+  --mirror <TOKEN> <HOST_TARGET_DIR>
 
       Makes this script act as a \"mirror\" server, meaning that content of a repository
-      represented by <TOKEN> will be mirrored into the <OUT_DIR> directory.
+      represented by <TOKEN> will be mirrored into the <HOST_TARGET_DIR> directory.
 
   --get-token <TYPE>
 
