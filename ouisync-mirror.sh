@@ -109,7 +109,7 @@ function run_container_detached (
         "RUN echo 'PS1=\"\\h/$container_name:\\W \\u$ \"' >> ~/.bashrc"
     )
 
-    echo -e ${dockerfile[@]/%/'\n'} | dock build -t $image_name -
+    echo -e ${dockerfile[@]/%/'\n'} | dock build -t $image_name:latest -
     
     local run_args=(
         --detach
@@ -194,7 +194,7 @@ function start_updating_into (
     local script=(
         "while true; do"
         #  Ouisync doesn't yet support timestamps so fallback to comparing checksums
-        "  rsync -r --del --checksum --ignore-times $container_mount_root/$repo_name/ /$container_target_dir;"
+        "  rsync -r --del --checksum --ignore-times $container_mount_root/$repo_name/ $container_target_dir;"
         "  sleep 1;"
         "done"
     )
