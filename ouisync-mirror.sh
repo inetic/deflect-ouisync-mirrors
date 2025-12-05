@@ -99,6 +99,7 @@ function run_container_detached (
         "RUN wget -O ouisync-cli.deb $ouisync_package"
         "RUN dpkg -i ouisync-cli.deb"
         "RUN rm ouisync-cli.deb"
+        "RUN echo 'PS1=\"\\h/$container_name:\\W \\u$ \"' >> ~/.bashrc"
     )
 
     echo -e ${dockerfile[@]/%/'\n'} | dock build -t $image_name -
