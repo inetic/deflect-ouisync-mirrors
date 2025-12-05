@@ -97,7 +97,7 @@ function run_container_detached (
     ouisync_package=https://github.com/equalitie/ouisync-app/releases/download/v0.9.2/ouisync-cli_0.9.2_amd64.deb
 
     local dockerfile=(
-        "FROM ubuntu:latest"
+        "FROM ubuntu:25.04"
         "ENV HOME=$container_home"
         'WORKDIR $HOME'
         "RUN apt-get update -y"
